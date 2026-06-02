@@ -10,19 +10,36 @@ This creates a conflict: **You cannot run WSL2 and a nested VMware VM (like Prox
 
 ## ✨ Features
 
-* **🔍 Architecture & Virtualization Check:** Automatically detects your CPU architecture (Intel / AMD / ARM64) and reads your system's firmware flags to verify if Hardware Virtualization (VT-x/AMD-V) is actively enabled in your BIOS/UEFI.
-* **🔁 Hypervisor Quick-Switch (Original):** Seamlessly toggle `hypervisorlaunchtype` between:
-  * **VMware / Proxmox Mode:** Turns the Windows Hypervisor `off`, giving VMware full, exclusive access to VT-x for nested virtualization.
-  * **WSL2 / Hyper-V Mode:** Turns the Windows Hypervisor to `auto`, restoring WSL2, Docker Desktop, and Windows Sandbox functionality.
-* **🐧 WSL Feature Manager:** Install or fully remove the Windows Subsystem for Linux core features directly via Windows DISM commands.
-* **🎮 Hardware Acceleration (HAGS) Toggle:** Turn Windows Hardware-Accelerated GPU Scheduling on or off via the registry. Useful for troubleshooting graphics rendering issues or latency inside virtual environments.
+### Live Status Dashboard
+The main menu shows the **current state** of your hypervisor, Memory Integrity (Core Isolation), and GPU HAGS at a glance — read live from `bcdedit` and the registry every time the menu refreshes.
+
+### Hypervisor Quick-Switch
+Seamlessly toggle `hypervisorlaunchtype` between:
+* **VMware / Proxmox Mode:** Turns the Windows Hypervisor `off`, giving VMware full, exclusive access to VT-x for nested virtualization.
+* **WSL2 / Hyper-V Mode:** Turns the Windows Hypervisor to `auto`, restoring WSL2, Docker Desktop, and Windows Sandbox functionality.
+
+### One-Click Combined Modes
+* **🟢 Full VMware Mode:** Hypervisor `off` **and** Memory Integrity `off` in a single action — fully releases VT-x to VMware (Memory Integrity alone can silently force the hypervisor back on).
+* **🔵 Full WSL2 Mode:** Hypervisor `auto` **and** enables Virtual Machine Platform + WSL features required for WSL2 / Docker Desktop.
+
+### Feature Toggles
+* **🛡️ Memory Integrity (Core Isolation):** Enable/disable the setting that forces the hypervisor to load for security — the usual culprit behind VMware `VT-x` errors.
+* **🐧 WSL Feature:** Install or remove the Windows Subsystem for Linux core feature via DISM.
+* **📦 Virtual Machine Platform:** Toggle the feature required by the WSL2 backend.
+* **🎮 GPU Hardware Acceleration (HAGS):** Turn Hardware-Accelerated GPU Scheduling on/off — useful when troubleshooting VM graphics latency.
+
+### Diagnostics & Safety
+* **🔍 System Status Report:** CPU architecture (Intel / AMD / ARM64), BIOS VT-x/AMD-V firmware status, and a live table of relevant Windows optional features (WSL, VMP, Hyper-V, Hypervisor Platform, Sandbox).
+* **💾 System Restore Point:** Create a named restore point before making changes.
+* **🗂️ BCD Backup:** Export the current Boot Configuration store, with the exact `bcdedit /import` command to roll back.
+* **📝 Action Log:** Every change is timestamped to `SwitchVirtMode.log` and viewable from the menu.
 
 ## 🚀 How to Use
 
-1. Download `SwitchVirtMode.bat` to your desktop.
+1. Download `SwitchVirtMode.bat`.
 2. **Right-click** the file and select **"Run as Administrator"**. *(The script includes a failsafe and will block execution if not run as Admin).*
-3. Select an option from the main menu (1-6).
-4. Type `Y` when prompted to reboot your system. **A reboot is absolutely mandatory** for hypervisor and registry changes to take effect.
+3. Pick an option from the menu. For most users switching to VMware, **option 4 (Full VMware Mode)** is the one-click answer.
+4. Type `Y` when prompted to reboot. **A reboot is mandatory** for hypervisor and registry changes to take effect.
 
 ## ⚠️ Important Notes
 
