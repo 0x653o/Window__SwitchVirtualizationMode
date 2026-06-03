@@ -5,21 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
-### Changed
-- Runtime files (action log, state snapshot, BCD backup) are now written to a
-  `credential_local` subfolder next to the script, created automatically on first
-  run, instead of sitting loose in the script directory.
-
 ## [1.1] - 2026-06-04
 
 ### Added
 - **Save Current State** (option 12) — snapshots your full virtualization
   configuration (hypervisor launch type, Memory Integrity, Firmware Protection,
   VBS, GPU HAGS, and the Virtual Machine Platform / WSL / Windows Hypervisor
-  Platform feature states) to a plain-text `SwitchVirtMode.state` file next to
-  the script.
+  Platform feature states) to a plain-text `SwitchVirtMode.state` file inside a
+  `credential_local` folder next to the script.
 - **Restore Saved State** (option 13) — re-applies a saved snapshot exactly, so
   you can return to your customized setup in one step (e.g. after Full VMware Mode).
 - **Automatic safety net** — Full VMware / Full WSL2 modes auto-snapshot the
@@ -27,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   always available.
 - **Dashboard snapshot indicator** — the menu header shows whether a snapshot is
   saved and when it was taken.
+
+### Changed
+- Runtime files (action log, state snapshot, BCD backup) are written to a
+  `credential_local` subfolder next to the script, created automatically on first
+  run, instead of sitting loose in the script directory.
 
 ### Notes
 - Pure batch, **no DLLs or dependencies** — the snapshot is a human-readable text
