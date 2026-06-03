@@ -55,6 +55,10 @@ Seamlessly toggle `hypervisorlaunchtype` between:
 * **Samsung Galaxy Book / custom BIOS:** Some Samsung laptops ship a locked "custom BIOS" where the VT-x option is restricted at the firmware level. If `VirtualizationFirmwareEnabled` shows **FALSE** in the System Status Report (option 1), no software setting can fix it — it must be enabled in BIOS/UEFI, which may not be exposed on these devices.
 * **Safety:** This script does not download any external tools; it relies entirely on built-in Microsoft utilities (`bcdedit`, `wmic`, `dism`, and `reg`).
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current release: **v1.1**.
+
 ## License
 
 [MIT License](LICENSE). Feel free to fork, use, and modify!
