@@ -13,9 +13,12 @@ color 0B
 :: Version:     1.1
 :: =====================================================================
 
-set "LOGFILE=%~dp0SwitchVirtMode.log"
-set "BCDBACKUP=%~dp0bcd_backup.bcd"
-set "STATEFILE=%~dp0SwitchVirtMode.state"
+:: All generated files (log, state snapshot, BCD backup) live in this
+:: subfolder, which is created on first run if it does not exist.
+set "DATADIR=%~dp0credential_local"
+set "LOGFILE=%DATADIR%\SwitchVirtMode.log"
+set "BCDBACKUP=%DATADIR%\bcd_backup.bcd"
+set "STATEFILE=%DATADIR%\SwitchVirtMode.state"
 
 :: --- Administrator Check ---
 net session >nul 2>&1
@@ -32,6 +35,9 @@ if %errorLevel% neq 0 (
     pause
     exit /b
 )
+
+:: --- Ensure the data folder exists for log / state / backup files ---
+if not exist "%DATADIR%" mkdir "%DATADIR%" >nul 2>&1
 
 :menu
 cls

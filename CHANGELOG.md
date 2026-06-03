@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Runtime files (action log, state snapshot, BCD backup) are now written to a
+  `credential_local` subfolder next to the script, created automatically on first
+  run, instead of sitting loose in the script directory.
+
 ## [1.1] - 2026-06-04
 
 ### Added
