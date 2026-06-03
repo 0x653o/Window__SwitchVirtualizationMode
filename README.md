@@ -30,6 +30,12 @@ Seamlessly toggle `hypervisorlaunchtype` between:
 * **🧩 Windows Hypervisor Platform:** Toggle the third-party hypervisor API feature; the Galaxy Book guide recommends disabling it for VMware.
 * **🎮 GPU Hardware Acceleration (HAGS):** Turn Hardware-Accelerated GPU Scheduling on/off — useful when troubleshooting VM graphics latency.
 
+### Save & Revert (Snapshot)
+* **💾 Save Current State:** Captures your full virtualization configuration — hypervisor launch type, Memory Integrity, Firmware Protection, VBS, HAGS, and the Virtual Machine Platform / WSL / Windows Hypervisor Platform feature states — to a plain-text `SwitchVirtMode.state` file next to the script.
+* **↩️ Restore Saved State:** Re-applies that snapshot exactly, so after using **Full VMware Mode** you can return to your previous customized setup in one step.
+* **🔒 Automatic safety net:** The first time you run a Full VMware/WSL2 mode, the script auto-snapshots your current state (if none exists yet) so a revert point is always available. The dashboard shows whether a snapshot is saved and when.
+* **🪶 No dependencies:** Pure batch — the snapshot is a human-readable text file, with **no DLLs, no installers, and no registry footprint of its own**. Delete the folder and nothing is left behind.
+
 ### Diagnostics & Safety
 * **🔍 System Status Report:** CPU architecture (Intel / AMD / ARM64), BIOS VT-x/AMD-V firmware status, and a live table of relevant Windows optional features (WSL, VMP, Hyper-V, Hypervisor Platform, Sandbox).
 * **💾 System Restore Point:** Create a named restore point before making changes.

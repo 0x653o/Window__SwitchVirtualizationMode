@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 cls
-title Advanced Hypervisor ^& Virtualization Manager v1.0
+title Advanced Hypervisor ^& Virtualization Manager v1.1
 color 0B
 
 :: =====================================================================
@@ -10,11 +10,12 @@ color 0B
 ::              Integrity + Firmware Protection), WSL / Virtual Machine
 ::              Platform / Windows Hypervisor Platform features, GPU
 ::              Hardware Acceleration, and verify CPU Virtualization.
-:: Version:     1.0
+:: Version:     1.1
 :: =====================================================================
 
 set "LOGFILE=%~dp0SwitchVirtMode.log"
 set "BCDBACKUP=%~dp0bcd_backup.bcd"
+set "STATEFILE=%~dp0SwitchVirtMode.state"
 
 :: --- Administrator Check ---
 net session >nul 2>&1
@@ -38,12 +39,13 @@ color 0B
 call :read_status
 
 echo =================================================================
-echo         ADVANCED HYPERVISOR ^& VIRTUALIZATION MANAGER  v1.0
+echo         ADVANCED HYPERVISOR ^& VIRTUALIZATION MANAGER  v1.1
 echo =================================================================
 echo   Hypervisor (bcdedit) : %HV_LABEL%
 echo   Memory Integrity     : %MI_STATUS%
 echo   Firmware Protection  : %FW_STATUS%
 echo   GPU HAGS             : %HAGS_STATUS%
+echo   Saved State Snapshot : %SNAP_STATUS%
 echo =================================================================
 echo.
 echo   [1]  System Status Report (CPU, Virtualization, Features)
@@ -62,10 +64,12 @@ echo   [9]  Toggle Virtual Machine Platform Feature
 echo   [10] Toggle Windows Hypervisor Platform Feature
 echo   [11] Toggle GPU Hardware Acceleration (HAGS)
 echo.
-echo   --- Safety / Tools -------------------------------------------
-echo   [12] Create System Restore Point
-echo   [13] Backup current Boot Configuration (BCD)
-echo   [14] View Log File
+echo   --- State / Safety -------------------------------------------
+echo   [12] Save Current State  (snapshot to revert to later)
+echo   [13] Restore Saved State (revert to your snapshot)
+echo   [14] Create System Restore Point
+echo   [15] Backup current Boot Configuration (BCD)
+echo   [16] View Log File
 echo.
 echo   [0]  Exit
 echo.
@@ -82,9 +86,11 @@ if "%choice%"=="8"  goto toggle_wsl
 if "%choice%"=="9"  goto toggle_vmp
 if "%choice%"=="10" goto toggle_hvp
 if "%choice%"=="11" goto toggle_hags
-if "%choice%"=="12" goto restore_point
-if "%choice%"=="13" goto backup_bcd
-if "%choice%"=="14" goto view_log
+if "%choice%"=="12" goto save_state_menu
+if "%choice%"=="13" goto restore_state_menu
+if "%choice%"=="14" goto restore_point
+if "%choice%"=="15" goto backup_bcd
+if "%choice%"=="16" goto view_log
 if "%choice%"=="0"  goto end
 goto menu
 
@@ -119,6 +125,12 @@ set "HAGS_RAW="
 for /f "tokens=3" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v HwSchMode 2^>nul ^| findstr /i "HwSchMode"') do set "HAGS_RAW=%%A"
 if "%HAGS_RAW%"=="0x2" set "HAGS_STATUS=ENABLED"
 if "%HAGS_RAW%"=="0x1" set "HAGS_STATUS=DISABLED"
+
+set "SNAP_STATUS=None saved yet"
+if exist "%STATEFILE%" (
+    set "SNAP_STATUS=Saved (option 13 reverts to it)"
+    for /f "usebackq tokens=2 delims=|" %%T in ("%STATEFILE%") do set "SNAP_STATUS=Saved %%T"
+)
 goto :eof
 
 
@@ -223,6 +235,10 @@ echo (Full WSL2 Mode) to restore them later.
 echo.
 set /p "ok=Proceed? (Y/N): "
 if /i not "%ok%"=="Y" goto menu
+if not exist "%STATEFILE%" (
+    echo Saving a snapshot of your current state first ^(revert with option 13^)...
+    call :save_state
+)
 bcdedit /set hypervisorlaunchtype off
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" /v Enabled /t REG_DWORD /d 0 /f
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\SystemGuard" /v Enabled /t REG_DWORD /d 0 /f
@@ -251,6 +267,10 @@ echo Platform + WSL features required for WSL2 and Docker Desktop.
 echo.
 set /p "ok=Proceed? (Y/N): "
 if /i not "%ok%"=="Y" goto menu
+if not exist "%STATEFILE%" (
+    echo Saving a snapshot of your current state first ^(revert with option 13^)...
+    call :save_state
+)
 bcdedit /set hypervisorlaunchtype auto
 dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
@@ -457,7 +477,171 @@ goto menu
 
 
 :: =====================================================================
-:: OPTION 12: Create System Restore Point
+:: OPTION 12: Save Current State (snapshot)
+:: =====================================================================
+:save_state_menu
+cls
+color 0D
+echo =====================================================
+echo            SAVE CURRENT STATE (SNAPSHOT)
+echo =====================================================
+echo Recording your current virtualization configuration to:
+echo   %STATEFILE%
+echo so you can revert to it later with option [13].
+echo (Reading Windows feature states, please wait...)
+echo.
+call :save_state
+echo [SUCCESS] Snapshot saved:
+echo -----------------------------------------------------
+type "%STATEFILE%"
+echo -----------------------------------------------------
+echo.
+pause
+goto menu
+
+
+:: =====================================================================
+:: OPTION 13: Restore Saved State
+:: =====================================================================
+:restore_state_menu
+cls
+color 0D
+echo =====================================================
+echo            RESTORE SAVED STATE
+echo =====================================================
+if not exist "%STATEFILE%" (
+    echo No saved state found.
+    echo Use option [12] to save a snapshot first.
+    echo.
+    pause
+    goto menu
+)
+echo The following saved snapshot will be re-applied:
+echo -----------------------------------------------------
+type "%STATEFILE%"
+echo -----------------------------------------------------
+echo.
+set /p "ok=Revert to this saved state? (Y/N): "
+if /i not "%ok%"=="Y" goto menu
+echo.
+echo Re-applying saved state (this may take a moment)...
+call :restore_state
+call :log "Restored saved state from snapshot"
+echo.
+echo [SUCCESS] Saved state re-applied.
+goto restart_prompt
+
+
+:: =====================================================================
+:: STATE SAVE WORKER   ( writes %STATEFILE% )
+:: =====================================================================
+:save_state
+call :read_status
+set "S_MI=none"
+if "%MI_RAW%"=="0x1" set "S_MI=1"
+if "%MI_RAW%"=="0x0" set "S_MI=0"
+set "S_FW=none"
+if "%FW_RAW%"=="0x1" set "S_FW=1"
+if "%FW_RAW%"=="0x0" set "S_FW=0"
+set "S_HAGS=none"
+if "%HAGS_RAW%"=="0x2" set "S_HAGS=2"
+if "%HAGS_RAW%"=="0x1" set "S_HAGS=1"
+set "S_VBS=none"
+set "S_VBS_RAW="
+for /f "tokens=3" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" /v EnableVirtualizationBasedSecurity 2^>nul ^| findstr /i "EnableVirtualizationBasedSecurity"') do set "S_VBS_RAW=%%A"
+if "%S_VBS_RAW%"=="0x1" set "S_VBS=1"
+if "%S_VBS_RAW%"=="0x0" set "S_VBS=0"
+call :feat_state VirtualMachinePlatform S_VMP
+call :feat_state Microsoft-Windows-Subsystem-Linux S_WSL
+call :feat_state HypervisorPlatform S_HVP
+> "%STATEFILE%" echo # saved ^| %date% %time%
+>> "%STATEFILE%" echo HV=%HV_STATUS%
+>> "%STATEFILE%" echo MI=%S_MI%
+>> "%STATEFILE%" echo FW=%S_FW%
+>> "%STATEFILE%" echo VBS=%S_VBS%
+>> "%STATEFILE%" echo HAGS=%S_HAGS%
+>> "%STATEFILE%" echo VMP=%S_VMP%
+>> "%STATEFILE%" echo WSL=%S_WSL%
+>> "%STATEFILE%" echo HVP=%S_HVP%
+call :log "State snapshot saved to %STATEFILE%"
+goto :eof
+
+
+:: =====================================================================
+:: STATE RESTORE WORKER   ( re-applies %STATEFILE% )
+:: =====================================================================
+:restore_state
+set "R_HV=auto"
+set "R_MI=none"
+set "R_FW=none"
+set "R_VBS=none"
+set "R_HAGS=none"
+set "R_VMP=off"
+set "R_WSL=off"
+set "R_HVP=off"
+for /f "usebackq eol=# tokens=1,2 delims==" %%K in ("%STATEFILE%") do (
+    if /i "%%K"=="HV"   set "R_HV=%%L"
+    if /i "%%K"=="MI"   set "R_MI=%%L"
+    if /i "%%K"=="FW"   set "R_FW=%%L"
+    if /i "%%K"=="VBS"  set "R_VBS=%%L"
+    if /i "%%K"=="HAGS" set "R_HAGS=%%L"
+    if /i "%%K"=="VMP"  set "R_VMP=%%L"
+    if /i "%%K"=="WSL"  set "R_WSL=%%L"
+    if /i "%%K"=="HVP"  set "R_HVP=%%L"
+)
+bcdedit /set hypervisorlaunchtype %R_HV%
+call :apply_dword "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" Enabled %R_MI%
+call :apply_dword "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\SystemGuard" Enabled %R_FW%
+call :apply_dword "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" EnableVirtualizationBasedSecurity %R_VBS%
+call :apply_dword "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" HwSchMode %R_HAGS%
+call :apply_feature VirtualMachinePlatform %R_VMP%
+call :apply_feature Microsoft-Windows-Subsystem-Linux %R_WSL%
+call :apply_feature HypervisorPlatform %R_HVP%
+goto :eof
+
+
+:: =====================================================================
+:: HELPER: read a Windows optional-feature state into a variable
+::         ( call :feat_state <FeatureName> <OutVarName> )
+::         Uses PowerShell so the Enabled/Disabled value is the
+::         culture-invariant enum (works on non-English Windows).
+:: =====================================================================
+:feat_state
+set "%~2=off"
+set "FEAT_RAW="
+for /f %%S in ('powershell -NoProfile -Command "(Get-WindowsOptionalFeature -Online -FeatureName %~1).State" 2^>nul') do set "FEAT_RAW=%%S"
+echo %FEAT_RAW% | findstr /i "Enabled" >nul && set "%~2=on"
+goto :eof
+
+
+:: =====================================================================
+:: HELPER: apply a REG_DWORD, or delete it when value is "none"
+::         ( call :apply_dword "<KeyPath>" <ValueName> <none^|number> )
+:: =====================================================================
+:apply_dword
+if /i "%~3"=="none" (
+    reg delete "%~1" /v %~2 /f >nul 2>&1
+) else (
+    reg add "%~1" /v %~2 /t REG_DWORD /d %~3 /f >nul
+)
+goto :eof
+
+
+:: =====================================================================
+:: HELPER: enable/disable a Windows optional feature
+::         ( call :apply_feature <FeatureName> <on^|off> )
+:: =====================================================================
+:apply_feature
+if /i "%~2"=="on" (
+    dism.exe /online /enable-feature /featurename:%~1 /all /norestart >nul
+) else (
+    dism.exe /online /disable-feature /featurename:%~1 /norestart >nul
+)
+goto :eof
+
+
+:: =====================================================================
+:: OPTION 14: Create System Restore Point
 :: =====================================================================
 :restore_point
 cls
@@ -476,7 +660,7 @@ goto menu
 
 
 :: =====================================================================
-:: OPTION 13: Backup current Boot Configuration (BCD)
+:: OPTION 15: Backup current Boot Configuration (BCD)
 :: =====================================================================
 :backup_bcd
 cls
@@ -501,7 +685,7 @@ goto menu
 
 
 :: =====================================================================
-:: OPTION 14: View Log File
+:: OPTION 16: View Log File
 :: =====================================================================
 :view_log
 cls
