@@ -11,7 +11,7 @@ This creates a conflict: **You cannot run WSL2 and a nested VMware VM (like Prox
 ## ✨ Features
 
 ### Live Status Dashboard
-The main menu shows the **current state** of your hypervisor, Memory Integrity (Core Isolation), and GPU HAGS at a glance — read live from `bcdedit` and the registry every time the menu refreshes.
+The main menu shows the **current state** of your hypervisor, Memory Integrity, Firmware Protection (both Core Isolation), and GPU HAGS at a glance — read live from `bcdedit` and the registry every time the menu refreshes.
 
 ### Hypervisor Quick-Switch
 Seamlessly toggle `hypervisorlaunchtype` between:
@@ -19,13 +19,15 @@ Seamlessly toggle `hypervisorlaunchtype` between:
 * **WSL2 / Hyper-V Mode:** Turns the Windows Hypervisor to `auto`, restoring WSL2, Docker Desktop, and Windows Sandbox functionality.
 
 ### One-Click Combined Modes
-* **🟢 Full VMware Mode:** Hypervisor `off` **and** Memory Integrity `off` in a single action — fully releases VT-x to VMware (Memory Integrity alone can silently force the hypervisor back on).
+* **🟢 Full VMware Mode:** Applies **every step of the Samsung Galaxy Book VT-x guide** in one action — hypervisor `off`, Memory Integrity `off`, Firmware Protection `off`, VBS `off`, and disables both **Virtual Machine Platform** and **Windows Hypervisor Platform**. This fully releases VT-x to VMware (any one of these alone can silently force the hypervisor back on).
 * **🔵 Full WSL2 Mode:** Hypervisor `auto` **and** enables Virtual Machine Platform + WSL features required for WSL2 / Docker Desktop.
 
 ### Feature Toggles
 * **🛡️ Memory Integrity (Core Isolation):** Enable/disable the setting that forces the hypervisor to load for security — the usual culprit behind VMware `VT-x` errors.
+* **🔥 Firmware Protection (Core Isolation):** Enable/disable System Guard Secure Launch, which (like Memory Integrity) can force the hypervisor on — Samsung Galaxy Book devices in particular.
 * **🐧 WSL Feature:** Install or remove the Windows Subsystem for Linux core feature via DISM.
 * **📦 Virtual Machine Platform:** Toggle the feature required by the WSL2 backend.
+* **🧩 Windows Hypervisor Platform:** Toggle the third-party hypervisor API feature; the Galaxy Book guide recommends disabling it for VMware.
 * **🎮 GPU Hardware Acceleration (HAGS):** Turn Hardware-Accelerated GPU Scheduling on/off — useful when troubleshooting VM graphics latency.
 
 ### Diagnostics & Safety
@@ -43,8 +45,9 @@ Seamlessly toggle `hypervisorlaunchtype` between:
 
 ## ⚠️ Important Notes
 
-* **Core Isolation / Memory Integrity:** If Windows "Memory Integrity" is turned ON, Windows security features may force the hypervisor to load in the background, ignoring this script. If VMware still throws `VT-x` or `VPMC` errors after switching to VMware Mode, go to **Windows Security → Device Security → Core Isolation** and turn **Memory Integrity OFF**.
-* **Safety:** This script is perfectly safe. It does not download any external tools; it relies entirely on built-in Microsoft utilities (`bcdedit`, `wmic`, `dism`, and `reg`).
+* **Core Isolation (Memory Integrity + Firmware Protection):** If either of these is ON, Windows security features may force the hypervisor to load in the background, ignoring `bcdedit`. **Option 4 (Full VMware Mode)** turns both off for you. If VMware still throws `VT-x` or `VPMC` errors, also confirm them off under **Windows Security → Device Security → Core Isolation**.
+* **Samsung Galaxy Book / custom BIOS:** Some Samsung laptops ship a locked "custom BIOS" where the VT-x option is restricted at the firmware level. If `VirtualizationFirmwareEnabled` shows **FALSE** in the System Status Report (option 1), no software setting can fix it — it must be enabled in BIOS/UEFI, which may not be exposed on these devices.
+* **Safety:** This script does not download any external tools; it relies entirely on built-in Microsoft utilities (`bcdedit`, `wmic`, `dism`, and `reg`).
 
 ## License
 
