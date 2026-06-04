@@ -59,7 +59,7 @@ Seamlessly toggle `hypervisorlaunchtype` between:
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current release: **v1.1**.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history. Current release: **v1.2**.
 
 ## License
 

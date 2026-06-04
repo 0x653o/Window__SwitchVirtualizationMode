@@ -22,7 +22,8 @@ set "STATEFILE=%DATADIR%\SwitchVirtMode.state"
 
 :: Always use the OS in-box DISM so its build matches the running image.
 :: A mismatched DISM (e.g. an older ADK copy on PATH) is a common cause of
-:: feature-servicing failures, so this avoids that and is version-checked below.
+:: feature-servicing failures; this avoids that. Versions are shown on the
+:: dashboard for transparency (see :check_versions).
 set "DISM=%SystemRoot%\System32\Dism.exe"
 
 :: --- Administrator Check ---
