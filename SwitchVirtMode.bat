@@ -61,8 +61,14 @@ echo   Memory Integrity     : %MI_STATUS%
 echo   Firmware Protection  : %FW_STATUS%
 echo   GPU HAGS             : %HAGS_STATUS%
 echo   Saved State Snapshot : %SNAP_STATUS%
-echo   DISM (in-box) / OS   : %DISM_VER%  /  %OS_VER%
+echo   DISM (in-box) / OS   : %DISM_VER% / %OS_VER%  [%VER_STATUS%]
 echo =================================================================
+if /i "%VER_STATUS%"=="DIFFERENT BASE" (
+    echo   [!] WARNING: DISM base ^(%DISM_BASE%xxx^) does not match OS base ^(%OS_BASE%xxx^).
+    echo       Feature servicing may FAIL. Update Windows or remove any stray
+    echo       older DISM from PATH so the in-box servicing stack is used.
+    echo =================================================================
+)
 echo   [!] DISM feature changes (4,8,9,10,13) can take several MINUTES.
 echo       Do NOT close the window mid-operation - that corrupts servicing.
 echo =================================================================
@@ -156,19 +162,33 @@ goto :eof
 :: =====================================================================
 :: VERSION INFO  (run once at startup)
 :: Reports the in-box DISM (servicing-stack) version and the running OS
-:: image version for transparency. We deliberately do NOT flag a build
-:: difference as an error: on Windows 11 25H2 (build 26200) the servicing
-:: stack legitimately reports the 24H2 base (26100) because 25H2 ships as
-:: an enablement package. Pinning to the in-box DISM above is what prevents
-:: a real tool/image mismatch (e.g. a stray older DISM on PATH).
+:: image version, and whether they share the same platform "base".
+::
+:: The base = the first two digits of the 5-digit build number (the
+:: platform generation): 26xxx = Germanium (Win11 24H2/25H2), 22xxx =
+:: Nickel (22H2/23H2), 19xxx = Vibranium. DISM is compatible across
+:: enablement packages within the same base, so a 26100 DISM servicing a
+:: 26200 (25H2) image is fine. Only a DIFFERENT base (e.g. a stray 22xxx
+:: DISM on PATH) is a real mismatch worth warning about.
 :: =====================================================================
 :check_versions
 set "OS_VER=unknown"
+set "OS_BUILD="
 for /f "tokens=2 delims=[]" %%a in ('ver') do set "OS_RAW=%%a"
 for /f "tokens=2" %%b in ("%OS_RAW%") do set "OS_VER=%%b"
+for /f "tokens=3 delims=." %%c in ("%OS_VER%") do set "OS_BUILD=%%c"
+set "OS_BASE=%OS_BUILD:~0,2%"
 
 set "DISM_VER=unknown"
+set "DISM_BUILD="
 for /f "delims=" %%v in ('powershell -NoProfile -Command "(Get-Item '%DISM%').VersionInfo.ProductVersion" 2^>nul') do set "DISM_VER=%%v"
+for /f "tokens=3 delims=." %%c in ("%DISM_VER%") do set "DISM_BUILD=%%c"
+set "DISM_BASE=%DISM_BUILD:~0,2%"
+
+set "VER_STATUS=same base"
+if not "%DISM_BASE%"=="%OS_BASE%" set "VER_STATUS=DIFFERENT BASE"
+if "%DISM_BASE%"=="" set "VER_STATUS=unknown"
+if "%OS_BASE%"=="" set "VER_STATUS=unknown"
 goto :eof
 
 
