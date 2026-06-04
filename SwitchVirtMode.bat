@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 cls
-title Advanced Hypervisor ^& Virtualization Manager v1.1
+title Advanced Hypervisor ^& Virtualization Manager v1.2
 color 0B
 
 :: =====================================================================
@@ -10,7 +10,7 @@ color 0B
 ::              Integrity + Firmware Protection), WSL / Virtual Machine
 ::              Platform / Windows Hypervisor Platform features, GPU
 ::              Hardware Acceleration, and verify CPU Virtualization.
-:: Version:     1.1
+:: Version:     1.2
 :: =====================================================================
 
 :: All generated files (log, state snapshot, BCD backup) live in this
@@ -19,6 +19,11 @@ set "DATADIR=%~dp0credential_local"
 set "LOGFILE=%DATADIR%\SwitchVirtMode.log"
 set "BCDBACKUP=%DATADIR%\bcd_backup.bcd"
 set "STATEFILE=%DATADIR%\SwitchVirtMode.state"
+
+:: Always use the OS in-box DISM so its build matches the running image.
+:: A mismatched DISM (e.g. an older ADK copy on PATH) is a common cause of
+:: feature-servicing failures, so this avoids that and is version-checked below.
+set "DISM=%SystemRoot%\System32\Dism.exe"
 
 :: --- Administrator Check ---
 net session >nul 2>&1
@@ -39,19 +44,26 @@ if %errorLevel% neq 0 (
 :: --- Ensure the data folder exists for log / state / backup files ---
 if not exist "%DATADIR%" mkdir "%DATADIR%" >nul 2>&1
 
+:: --- One-time DISM tool / OS image version compatibility check ---
+call :check_versions
+
 :menu
 cls
 color 0B
 call :read_status
 
 echo =================================================================
-echo         ADVANCED HYPERVISOR ^& VIRTUALIZATION MANAGER  v1.1
+echo         ADVANCED HYPERVISOR ^& VIRTUALIZATION MANAGER  v1.2
 echo =================================================================
 echo   Hypervisor (bcdedit) : %HV_LABEL%
 echo   Memory Integrity     : %MI_STATUS%
 echo   Firmware Protection  : %FW_STATUS%
 echo   GPU HAGS             : %HAGS_STATUS%
 echo   Saved State Snapshot : %SNAP_STATUS%
+echo   DISM (in-box) / OS   : %DISM_VER%  /  %OS_VER%
+echo =================================================================
+echo   [!] DISM feature changes (4,8,9,10,13) can take several MINUTES.
+echo       Do NOT close the window mid-operation - that corrupts servicing.
 echo =================================================================
 echo.
 echo   [1]  System Status Report (CPU, Virtualization, Features)
@@ -137,6 +149,25 @@ if exist "%STATEFILE%" (
     set "SNAP_STATUS=Saved (option 13 reverts to it)"
     for /f "usebackq tokens=2 delims=|" %%T in ("%STATEFILE%") do set "SNAP_STATUS=Saved %%T"
 )
+goto :eof
+
+
+:: =====================================================================
+:: VERSION INFO  (run once at startup)
+:: Reports the in-box DISM (servicing-stack) version and the running OS
+:: image version for transparency. We deliberately do NOT flag a build
+:: difference as an error: on Windows 11 25H2 (build 26200) the servicing
+:: stack legitimately reports the 24H2 base (26100) because 25H2 ships as
+:: an enablement package. Pinning to the in-box DISM above is what prevents
+:: a real tool/image mismatch (e.g. a stray older DISM on PATH).
+:: =====================================================================
+:check_versions
+set "OS_VER=unknown"
+for /f "tokens=2 delims=[]" %%a in ('ver') do set "OS_RAW=%%a"
+for /f "tokens=2" %%b in ("%OS_RAW%") do set "OS_VER=%%b"
+
+set "DISM_VER=unknown"
+for /f "delims=" %%v in ('powershell -NoProfile -Command "(Get-Item '%DISM%').VersionInfo.ProductVersion" 2^>nul') do set "DISM_VER=%%v"
 goto :eof
 
 
@@ -249,8 +280,8 @@ bcdedit /set hypervisorlaunchtype off
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" /v Enabled /t REG_DWORD /d 0 /f
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\SystemGuard" /v Enabled /t REG_DWORD /d 0 /f
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard" /v EnableVirtualizationBasedSecurity /t REG_DWORD /d 0 /f
-dism.exe /online /disable-feature /featurename:VirtualMachinePlatform /norestart
-dism.exe /online /disable-feature /featurename:HypervisorPlatform /norestart
+"%DISM%" /online /disable-feature /featurename:VirtualMachinePlatform /norestart
+"%DISM%" /online /disable-feature /featurename:HypervisorPlatform /norestart
 call :log "FULL VMware mode: HV off + MemIntegrity off + Firmware off + VBS off + VMP/HVP disabled"
 echo.
 echo [SUCCESS] Hypervisor, Memory Integrity, Firmware Protection, and
@@ -278,8 +309,8 @@ if not exist "%STATEFILE%" (
     call :save_state
 )
 bcdedit /set hypervisorlaunchtype auto
-dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+"%DISM%" /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+"%DISM%" /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 call :log "FULL WSL2 mode: hypervisor AUTO + VMP + WSL enabled"
 echo.
 echo [SUCCESS] Hypervisor AUTO, Virtual Machine Platform and WSL enabled.
@@ -371,13 +402,13 @@ echo.
 set /p "wsl_choice=Select A, B, or C: "
 if /i "%wsl_choice%"=="A" (
     echo Enabling Windows Subsystem for Linux...
-    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+    "%DISM%" /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
     call :log "WSL feature ENABLED"
     goto restart_prompt
 )
 if /i "%wsl_choice%"=="B" (
     echo Disabling Windows Subsystem for Linux...
-    dism.exe /online /disable-feature /featurename:Microsoft-Windows-Subsystem-Linux /norestart
+    "%DISM%" /online /disable-feature /featurename:Microsoft-Windows-Subsystem-Linux /norestart
     call :log "WSL feature DISABLED"
     goto restart_prompt
 )
@@ -402,13 +433,13 @@ echo.
 set /p "vmp_choice=Select A, B, or C: "
 if /i "%vmp_choice%"=="A" (
     echo Enabling Virtual Machine Platform...
-    dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+    "%DISM%" /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
     call :log "Virtual Machine Platform ENABLED"
     goto restart_prompt
 )
 if /i "%vmp_choice%"=="B" (
     echo Disabling Virtual Machine Platform...
-    dism.exe /online /disable-feature /featurename:VirtualMachinePlatform /norestart
+    "%DISM%" /online /disable-feature /featurename:VirtualMachinePlatform /norestart
     call :log "Virtual Machine Platform DISABLED"
     goto restart_prompt
 )
@@ -435,13 +466,13 @@ echo.
 set /p "hvp_choice=Select A, B, or C: "
 if /i "%hvp_choice%"=="A" (
     echo Enabling Windows Hypervisor Platform...
-    dism.exe /online /enable-feature /featurename:HypervisorPlatform /all /norestart
+    "%DISM%" /online /enable-feature /featurename:HypervisorPlatform /all /norestart
     call :log "Windows Hypervisor Platform ENABLED"
     goto restart_prompt
 )
 if /i "%hvp_choice%"=="B" (
     echo Disabling Windows Hypervisor Platform...
-    dism.exe /online /disable-feature /featurename:HypervisorPlatform /norestart
+    "%DISM%" /online /disable-feature /featurename:HypervisorPlatform /norestart
     call :log "Windows Hypervisor Platform DISABLED"
     goto restart_prompt
 )
@@ -530,7 +561,9 @@ echo.
 set /p "ok=Revert to this saved state? (Y/N): "
 if /i not "%ok%"=="Y" goto menu
 echo.
-echo Re-applying saved state (this may take a moment)...
+echo Re-applying saved state...
+echo [!] Enabling Windows features via DISM can take SEVERAL MINUTES and
+echo     shows no progress here. Please WAIT - do NOT close this window.
 call :restore_state
 call :log "Restored saved state from snapshot"
 echo.
@@ -639,9 +672,9 @@ goto :eof
 :: =====================================================================
 :apply_feature
 if /i "%~2"=="on" (
-    dism.exe /online /enable-feature /featurename:%~1 /all /norestart >nul
+    "%DISM%" /online /enable-feature /featurename:%~1 /all /norestart >nul
 ) else (
-    dism.exe /online /disable-feature /featurename:%~1 /norestart >nul
+    "%DISM%" /online /disable-feature /featurename:%~1 /norestart >nul
 )
 goto :eof
 

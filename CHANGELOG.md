@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2] - 2026-06-04
+
+### Added
+- **Dashboard version info** — the main menu now shows the in-box DISM
+  (servicing-stack) version and the running OS image version, so you can see
+  what is servicing what at a glance.
+- **DISM caution banner** — a persistent reminder that DISM feature changes
+  (options 4, 8, 9, 10, 13) can take several minutes and must not be
+  interrupted (interrupting them corrupts the servicing stack — e.g. RPC 1726).
+
+### Changed
+- The script now always invokes the **in-box DISM** (`%SystemRoot%\System32\Dism.exe`)
+  instead of whatever `dism` resolves to on `PATH`. This prevents a stray older
+  DISM (e.g. a Windows ADK copy) from servicing a newer OS image and failing.
+
+### Notes
+- A version difference such as DISM `10.0.26100.x` vs OS `10.0.26200.x` is
+  **expected and healthy** on Windows 11 25H2, which ships as an enablement
+  package on the 24H2 (26100) servicing base — it is shown for information only,
+  not as an error.
+
 ## [1.1] - 2026-06-04
 
 ### Added

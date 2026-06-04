@@ -37,6 +37,8 @@ Seamlessly toggle `hypervisorlaunchtype` between:
 * **🪶 No dependencies:** Pure batch — the snapshot is a human-readable text file, with **no DLLs, no installers, and no registry footprint of its own**. Delete the folder and nothing is left behind.
 
 ### Diagnostics & Safety
+* **🧬 DISM / OS version info:** The dashboard shows the in-box DISM (servicing-stack) version and the running OS image version. The script always uses the in-box `System32\Dism.exe` so it matches the running image, avoiding feature-servicing failures from a stray older DISM on `PATH`. *(A 26100-vs-26200 difference is normal on Windows 11 25H2 — shown for information, not an error.)*
+* **⏳ DISM caution:** A persistent banner reminds you that feature changes via DISM can take several minutes and must not be interrupted — interrupting them corrupts the servicing stack (e.g. RPC 1726).
 * **🔍 System Status Report:** CPU architecture (Intel / AMD / ARM64), BIOS VT-x/AMD-V firmware status, and a live table of relevant Windows optional features (WSL, VMP, Hyper-V, Hypervisor Platform, Sandbox).
 * **💾 System Restore Point:** Create a named restore point before making changes.
 * **🗂️ BCD Backup:** Export the current Boot Configuration store, with the exact `bcdedit /import` command to roll back.
